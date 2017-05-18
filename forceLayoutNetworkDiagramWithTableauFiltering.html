@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+<style>
+    h1 {
+        padding-bottom: 0px;
+        margin-bottom: 0px;
+        text-align: center;
+    }
+    p {
+        padding-top: 0px;
+        margin-top: 0px;
+        padding-bottom: 0px;
+        margin-bottom: 0px;
+        text-align: center;
+    }
+    .svg {
+        margin: auto;
+    }
+    .node {
+        fill: #99ddff;
+        stroke: #000;
+        stroke-width: 0.1px;
+    }
+    .node text {
+        fill: #000;
+        font: 12px;
+        pointer-events: none;
+    }
+    .link {
+        stroke: #d9d9d9;
+        stroke-width: 3px;
+    }
+    .hovercard {
+        position: absolute;
+        max-width: 400px;
+        height: auto;
+        padding: 5px;
+        margin-left: 5px;
+        background-color: #eef4ff;
+        -webkit-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+        -moz-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+        box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+        pointer-events: none; /* so the hovercard goes away */
+        font: 12px;
+    }
+</style>
+
+<head>
+    <title>D3.js Network Diagram with Tableau Filtering</title>
+    <meta charset='utf-8'>
+    <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'>
+    <script src='//d3js.org/d3.v3.min.js'></script>
+    <script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>
+    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js'></script>
+    <script type='text/javascript' src='https://public.tableau.com/javascripts/api/tableau-2.min.js'></script>
+    <!--for Tableau API-->
+    <script type='text/javascript'>
+        var viz, sheet;
+        
+        function initViz() {
+            var containerDiv = document.getElementById('vizContainer'),
+                url = 'https://public.tableau.com/views/SampleDashboard_96/Dashboard1',
+                options = {
+                    hideTabs: true,
+                    onFirstInteractive: function () {
+                        sheet = viz.getWorkbook().getActiveSheet();
+                    }
+                };
+
+            var viz = new tableau.Viz(containerDiv, url, options); 
+        }
+    </script>
+</head>
+
+<body onload='initViz();'>
+    <div class='container-fluid'>
+    <h1>Tableau JavaScript API Test</h1>
+    <p>On the network diagram, double click on a node to highlight its connections and filter the Tableau dashboard. Double click on a node again to deselect.</p>
+    <div class='row'>
+        <div class='col-md-6' id='networkDiagram'>
+            <div width='100%' height='600'></div>
+            <script>
+            // variable to set networkDiagram div width based on window size
+            var chartDiv = document.getElementById('networkDiagram');
+            
+            // set a width and height for the SVG
+            var width = chartDiv.clientWidth,
+                height = 600;
+            
+            // pull in data
+            d3.csv('sampleData.csv', function(error, links) {
+            // create empty nodes array
+            var nodes = {};
+            // compute nodes from links data
+            links.forEach(function(link) {
+                link.source = nodes[link.source] ||
+                    (nodes[link.source] = {name: link.source});
+                link.target = nodes[link.target] ||
+                    (nodes[link.target] = {name: link.target});
+                link.count = +link.count;        
+            });
+            
+            // add hovercard
+            var hovercard = d3.select('body').append('div')
+                .attr('class', 'hovercard')
+                .style('opacity', 0)
+                .style('width', 400);
+        
+            // add a SVG to the networkDiagram div
+            var svg = d3.select('#networkDiagram').append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .attr('pointer-events', 'all')
+                .append('g')
+                .call(d3.behavior.zoom().scaleExtent([0.1, 2]).on('zoom', zoom)).on('dblclick.zoom', null)
+                .append('g');
+        
+            // add a transparent background rectangle to catch mouse events for the zoom behaviour.
+            // Note that the rectangle must be inside the element (svg)
+            // which has the zoom behaviour attached, but must be *outside*
+            // the group that is going to be transformed.
+            var rect = svg.append('rect')
+                .attr('width', width)
+                .attr('height', height)
+                .style('fill', 'none')
+                .style('pointer-events', 'all');
+        
+            // create a group that will hold all the content to be zoomed
+            var vis = svg.append('svg:g')
+                    .attr('class', 'plotting-area');
+            
+            // zoom function
+            function zoom() {
+                vis.attr('transform', 'translate(' + d3.event.translate + ')scale(' + d3.event.scale + ')');
+            }
+        
+            // force for the graph
+            var force = d3.layout.force()
+                .size([width, height])
+                .nodes(d3.values(nodes))
+                .links(links)
+                .gravity(0.6)
+                .linkDistance(0)
+                .linkStrength(1)
+                .charge(-2000)
+                .start();
+        
+            // setup link definition
+            var link = vis.selectAll('.link')
+                .data(links)
+                .enter().append('line')
+                .attr('class', 'link');
+        
+            // fix ability to drag nodes with zoom and pan functionality
+            var drag = force.drag()
+                .on('dragstart', function(d) {
+        		d3.event.sourceEvent.stopPropagation();
+              });
+
+            // setup node definition
+            var node = vis.selectAll('.node')
+                .data(d3.values(nodes))
+                .enter().append('g')
+                .attr('class', 'node')
+                .call(force.drag)
+                .on('dblclick', connectedNodes);
+        
+            node.append('circle')
+                .attr('r', 7);
+        
+            // uses an image instead of a circle
+            node.append('image')
+                .attr('xlink:href', 'https://i.imgur.com/90H2Z1A.png')
+                .attr('x', function(d) { return -8;})
+                .attr('y', function(d) { return -8;})
+                .attr('width', 16)
+                .attr('height', 16);
+    
+            // adds the name text
+            node.append('text')
+                .attr('dx', 10)
+                .attr('dy', '.30em')
+                .text(function(d) { return d.name; });
+            
+            // tick function to move things around  
+            force.on('tick', function () {
+                
+                link.attr('x1', function (d) { return d.source.x; })
+                    .attr('y1', function (d) { return d.source.y; })
+                    .attr('x2', function (d) { return d.target.x; })
+                    .attr('y2', function (d) { return d.target.y; });
+                node.attr('transform', function(d) 
+                    { return 'translate(' + d.x + ',' + d.y + ')'; });
+                
+                // for link mouseover functions
+                link.on('mouseover', function(d) {
+                    hovercard.transition()
+                        .duration(400)
+                        .style('opacity', 1);
+        
+                // html string for tooltip text
+                var tip =
+                    '<strong>' + d.source.name + '</strong>' + ' is connected to <br/>' + 
+                    '<strong>' + d.target.name + '</strong>' + ' by ' + d.origin + ' ' + d.count + ' time(s).';
+                
+                hovercard.html(tip)
+                    .style('left', d3.event.pageX + 'px')
+                    .style('top', d3.event.pageY + 'px');
+                
+                });
+                
+                // make tooltip go away
+                link.on('mouseout', function(d) {
+                    hovercard.transition()
+                        .duration(200)
+                        .style('opacity', 0);
+                });
+        
+                // tooltip for node info
+                node.on('mouseover', function(d) {
+                    hovercard.transition()
+                        .duration(400)
+                        .style('opacity', 1);
+        
+                var tip2 =
+                    'Name: ' + '<strong>' + d.name + '</strong><br/>' +
+                    'Organization: ' + '' + '<br/>' +
+                    'City: ' + '' + '<br/>' +
+                    'State: ' + '' + '<br/>';
+                
+                hovercard.html(tip2)
+                    .style('left', d3.event.pageX + 'px')
+                    .style('top', d3.event.pageY + 'px');
+                
+                });
+                
+                node.on('mouseout', function(d) {
+                    hovercard.transition()
+                        .duration(200)
+                        .style('opacity', 0);
+                });
+            
+            });// end tick
+
+            // to filter the Tableau viz
+            function show(filterName, values) {
+                var worksheetArray = sheet.getWorksheets();
+                for(var i = 0; i < worksheetArray.length; i++) {
+                    worksheetArray[i].applyFilterAsync(filterName, values, tableau.FilterUpdateType.REPLACE);
+                }
+            }
+
+            // to undo the viz filter
+            function undo(filterName, values) {
+                var worksheetArray = sheet.getWorksheets();
+                for(var i = 0; i < worksheetArray.length; i++) {
+                    worksheetArray[i].clearFilterAsync(filterName, values, tableau.FilterUpdateType.REPLACE);
+                }
+            }
+
+            // toggle stores whether the highlighting is on
+            var toggle = 0;
+            // create an array logging what is connected to what
+            var linkedByIndex = {};
+            
+            // creating an index for each node (ex. "0,0":1). 1 is a placeholder since only indexes are needed
+            for (i = 0; i < d3.values(nodes).length; i++) {
+                linkedByIndex[i + ',' + i] = 1;
+            }
+            
+            // takes each link (source and target data) and creates an index for each linked pair ("0,1":1, "0,2":1, "0,3":1, etc.)
+            links.forEach(function (d) {
+                linkedByIndex[d.source.index + ',' + d.target.index] = 1;
+            });
+
+            // this function looks up whether a pair are neighbors. If so, it returns the index for the linked pair that is stored in linkedByIndex
+            function neighboring(a, b) {
+                return linkedByIndex[a.index + ',' + b.index];
+            }
+            
+            // node values for the filter array
+            nodeData = d3.values(nodes)
+            
+            // highlights the connected nodes and links for a clicked node
+            function connectedNodes() {
+                if (toggle == 0) {
+                    // data for the clicked node
+                    d = d3.select(this).node().__data__;
+
+                    // reduce the opacity of all but the neighboring nodes and links
+                    node.style('opacity', function (o) {
+                        return neighboring(d, o) | neighboring(o, d) ? 1 : 0.1;
+                    });
+                    link.style('opacity', function (o) {
+                        return d.index==o.source.index | d.index==o.target.index ? 1 : 0.1;
+                    });
+                    
+                    // empty array for the Tableau filter function
+                    filterData = [];
+                    
+                    // pull names from the neighboring nodes for the filter array
+                    nodeData.forEach(function(i) {
+                        if(neighboring(d, i) | neighboring(i, d)) {
+                            filterData.push(i.name);
+                        }
+                    });
+
+                    // shows the filtered neighboring node names on the Tableau viz
+                    show('Name',filterData);
+
+                    // reduce the opacity of unlinked nodes
+                    toggle = 1;
+                } else {
+                    // undoes the Tableau viz filter
+                    undo('Name',d.name);
+                    
+                    // empty the name filter array
+                    filterData = [];
+                    // put nodes and links back to opacity=1 and remove highlights
+                    node.style('opacity', 1);
+                    link.style('opacity', 1);
+                    
+                    toggle = 0;
+                }
+            } // end connectedNodes
+
+        });
+        
+        </script><!--end force layout-->
+        </div><!--end column 1 div-->
+            <div class='col-md-6'  id='TableauViz'>
+                <div id='vizContainer'>
+                </div><!--end vizContainer-->
+            </div><!--end column 2 div-->
+        </div><!--end row div-->
+    </div><!--end container-fluid div-->
+</body>
