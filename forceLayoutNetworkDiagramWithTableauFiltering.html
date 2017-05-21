@@ -76,7 +76,7 @@
 <body onload='initViz();'>
     <div class='container-fluid'>
     <h1>Tableau JavaScript API Test</h1>
-    <p>On the network diagram, double click on a node to highlight its connections and filter the Tableau dashboard. Double click on a node again to deselect.</p>
+    <p>On the network diagram, double click on a node to highlight its connections and filter the Tableau dashboard. Double click on a node or on the background to deselect.</p>
     <div class='row'>
         <div class='col-md-6' id='networkDiagram'>
             <div width='100%' height='600'></div>
@@ -124,7 +124,8 @@
                 .attr('width', width)
                 .attr('height', height)
                 .style('fill', 'none')
-                .style('pointer-events', 'all');
+                .style('pointer-events', 'all')
+                .on('dblclick',undoConnectedNodes);
         
             // create a group that will hold all the content to be zoomed
             var vis = svg.append('svg:g')
@@ -281,6 +282,8 @@
             
             // node values for the filter array
             nodeData = d3.values(nodes)
+            // empty array for the Tableau filter function
+            filterData = [];
             
             // highlights the connected nodes and links for a clicked node
             function connectedNodes() {
@@ -295,9 +298,6 @@
                     link.style('opacity', function (o) {
                         return d.index==o.source.index | d.index==o.target.index ? 1 : 0.1;
                     });
-                    
-                    // empty array for the Tableau filter function
-                    filterData = [];
                     
                     // pull names from the neighboring nodes for the filter array
                     nodeData.forEach(function(i) {
@@ -324,6 +324,20 @@
                     toggle = 0;
                 }
             } // end connectedNodes
+            
+        function undoConnectedNodes() {
+            if (toggle == 1) {
+                // undoes the Tableau viz filter
+                undo('Name',d.name);
+                // empty the name filter array
+                filterData = [];
+                // put nodes and links back to opacity=1 and remove highlights
+                node.style('opacity', 1);
+                link.style('opacity', 1);
+                
+                toggle = 0;
+            }
+        }
 
         });
         
