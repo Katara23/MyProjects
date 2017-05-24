@@ -222,8 +222,8 @@
         
                 // html string for tooltip text
                 var tip =
-                    '<strong>' + d.source.name + '</strong>' + ' is connected to <br/>' + 
-                    '<strong>' + d.target.name + '</strong>' + ' by ' + d.origin + ' ' + d.count + ' time(s).';
+                    '<strong>' + d.source.name + '</strong>' + ' is connected to ' + '<strong>' + d.target.name + '</strong><br/>' +
+                    ' through their ' + d.connection +'.';
                 
                 hovercard.html(tip)
                     .style('left', d3.event.pageX + 'px')
