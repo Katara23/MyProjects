@@ -51,6 +51,7 @@
     <meta charset='utf-8'>
     <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'>
     <script src='//d3js.org/d3.v3.min.js'></script>
+    <script src='https://d3js.org/d3-queue.v3.min.js'></script>
     <script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>
     <script src='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js'></script>
     <script type='text/javascript' src='https://public.tableau.com/javascripts/api/tableau-2.min.js'></script>
@@ -88,17 +89,36 @@
             var width = chartDiv.clientWidth,
                 height = 600;
             
-            // pull in data
-            d3.csv('sampleData.csv', function(error, links) {
-            // create empty nodes array
-            var nodes = {};
-            // compute nodes from links data
-            links.forEach(function(link) {
-                link.source = nodes[link.source] ||
-                    (nodes[link.source] = {name: link.source});
-                link.target = nodes[link.target] ||
-                    (nodes[link.target] = {name: link.target});
-                link.count = +link.count;        
+            // pull in data from both csv files
+            d3.queue()
+              .defer(d3.csv, 'sampleData.csv')
+              .defer(d3.csv, 'SampleTableauData.csv')
+              .await(analyze);
+            
+            function analyze(error, links, TableauData) {
+                // create empty nodes array
+                var nodes = {};
+                // compute nodes from links data
+                links.forEach(function(link) {
+                    link.source = nodes[link.source] ||
+                        (nodes[link.source] = {name: link.source});
+                    link.target = nodes[link.target] ||
+                        (nodes[link.target] = {name: link.target});
+                    link.count = +link.count;        
+                });
+
+            // node values
+            var nodeData = d3.values(nodes);
+            
+            // add Tableau data to node data
+            nodeData.forEach(function(node) {
+                // returns data if names match
+                var result = TableauData.filter(function(info) {
+                    return info.name == node.name;
+                });
+                node.organization = (result[0] !== undefined) ? result[0].organization : null;
+                node.city = (result[0] !== undefined) ? result[0].city : null;
+                node.state = (result[0] !== undefined) ? result[0].state : null;
             });
             
             // add hovercard
@@ -226,9 +246,9 @@
         
                 var tip2 =
                     'Name: ' + '<strong>' + d.name + '</strong><br/>' +
-                    'Organization: ' + '' + '<br/>' +
-                    'City: ' + '' + '<br/>' +
-                    'State: ' + '' + '<br/>';
+                    'Organization: ' + d.organization + '<br/>' +
+                    'City: ' + d.city + '<br/>' +
+                    'State: ' + d.state + '<br/>';
                 
                 hovercard.html(tip2)
                     .style('left', d3.event.pageX + 'px')
@@ -265,12 +285,12 @@
             // create an array logging what is connected to what
             var linkedByIndex = {};
             
-            // creating an index for each node (ex. "0,0":1). 1 is a placeholder since only indexes are needed
+            // creating an index for each node (ex. '0,0':1). 1 is a placeholder since only indexes are needed
             for (i = 0; i < d3.values(nodes).length; i++) {
                 linkedByIndex[i + ',' + i] = 1;
             }
             
-            // takes each link (source and target data) and creates an index for each linked pair ("0,1":1, "0,2":1, "0,3":1, etc.)
+            // takes each link (source and target data) and creates an index for each linked pair ('0,1':1, '0,2':1, '0,3':1, etc.)
             links.forEach(function (d) {
                 linkedByIndex[d.source.index + ',' + d.target.index] = 1;
             });
@@ -279,11 +299,9 @@
             function neighboring(a, b) {
                 return linkedByIndex[a.index + ',' + b.index];
             }
-            
-            // node values for the filter array
-            nodeData = d3.values(nodes)
+
             // empty array for the Tableau filter function
-            filterData = [];
+            var filterData = [];
             
             // highlights the connected nodes and links for a clicked node
             function connectedNodes() {
@@ -339,7 +357,7 @@
             }
         }
 
-        });
+        }
         
         </script><!--end force layout-->
         </div><!--end column 1 div-->
