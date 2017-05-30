@@ -14,6 +14,41 @@
         margin-bottom: 0px;
         text-align: center;
     }
+    #networkDiagram {
+        border-right: 10px solid white;
+    }
+    #dashboardSelection {
+        padding-right: 20px;
+        margin-top: 10px;
+    }
+    .flex-container {
+        display: -webkit-flex;
+        display: flex;
+        padding-right: 40px;
+        -webkit-flex-direction: row;
+        flex-direction: row;
+        -webkit-justify-content: flex-end;
+        justify-content: flex-end;
+        background-color: white;
+    }
+    .firstItem {
+        -webkit-order: -1;
+        order: -1;
+    }
+    .button {
+        color: #4da6ff;
+        padding: 10px;
+        text-align: center;
+        border-radius: 12px;
+        border: 2px solid #4da6ff;
+        background-color: white;
+        transition-duration: 0.4s;
+        cursor: pointer;
+    }
+    .button:hover {
+        background-color: #4da6ff;
+        color: white;
+    }
     .svg {
         margin: auto;
     }
@@ -55,46 +90,67 @@
     <script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>
     <script src='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js'></script>
     <script type='text/javascript' src='https://public.tableau.com/javascripts/api/tableau-2.min.js'></script>
-    <!--for Tableau API-->
-    <script type='text/javascript'>
-        var viz, sheet;
-        
-        function initViz() {
-            var containerDiv = document.getElementById('vizContainer'),
-                url = 'https://public.tableau.com/views/SampleDashboard_96/Dashboard1',
-                options = {
-                    hideTabs: true,
-                    onFirstInteractive: function () {
-                        sheet = viz.getWorkbook().getActiveSheet();
-                    }
-                };
-
-            var viz = new tableau.Viz(containerDiv, url, options); 
-        }
-    </script>
 </head>
 
 <body onload='initViz();'>
     <div class='container-fluid'>
     <h1>Tableau JavaScript API Test</h1>
-    <p>On the network diagram, double click on a node to highlight its connections and filter the Tableau dashboard. Double click on a node or on the background to deselect.</p>
+    <p>On the network diagram (left), double click on a node to highlight its connections and filter the Tableau dashboard (right). Double click on a node or on the background to deselect. On the Tableau dashboard, select a person then click the select button below to highlight their connections on the network diagram.</p>
     <div class='row'>
         <div class='col-md-6' id='networkDiagram'>
-            <div width='100%' height='600'></div>
             <script>
-            // variable to set networkDiagram div width based on window size
+            // for Tableau API
+            var viz, sheet, selectedName;
+
+            function initViz() {
+                var containerDiv = document.getElementById('vizContainer'),
+                    url = 'https://public.tableau.com/views/SampleDashboard_96/Dashboard1',
+                    options = {
+                        hideTabs: true,
+                        onFirstInteractive: function () {
+                            sheet = viz.getWorkbook().getActiveSheet();
+                            listenToMarksSelection();
+                        }
+                    };
+    
+                var viz = new tableau.Viz(containerDiv, url, options);
+
+                // event listener functions for returning the selected name
+                function listenToMarksSelection() {
+                    viz.addEventListener(tableau.TableauEventName.MARKS_SELECTION, onMarksSelection);
+                }
+                function onMarksSelection(marksEvent) {
+                    return marksEvent.getMarksAsync().then(returnName);
+                }
+                function returnName(marks) {
+                    for (var markIndex = 0; markIndex < marks.length; markIndex++) {
+                        var pairs = marks[markIndex].getPairs();
+                        for (var pairIndex = 0; pairIndex < pairs.length; pairIndex++) {
+                            var pair = pairs[pairIndex];
+                            if (pair.fieldName === 'Name') {
+                                selectedName = pair.value;
+                            }
+                            var displaySelection = document.getElementById('dashboardSelection');
+                            displaySelection.innerHTML = selectedName;
+                            document.getElementById('selectButton').disabled = false; // enable the button
+                        }
+                    }
+                } // end returnNames function
+            } // end initViz function
+
+            // variable to set the networkDiagram div width based on window size
             var chartDiv = document.getElementById('networkDiagram');
             
             // set a width and height for the SVG
             var width = chartDiv.clientWidth,
-                height = 600;
+                height = 645;
             
             // pull in data from both csv files
             d3.queue()
               .defer(d3.csv, 'sampleData.csv')
               .defer(d3.csv, 'SampleTableauData.csv')
               .await(analyze);
-            
+
             function analyze(error, links, TableauData) {
                 // create empty nodes array
                 var nodes = {};
@@ -109,8 +165,8 @@
 
             // node values
             var nodeData = d3.values(nodes);
-            
-            // add Tableau data to node data
+
+            // add Tableau data from csv to node data
             nodeData.forEach(function(node) {
                 // returns data if names match
                 var result = TableauData.filter(function(info) {
@@ -120,13 +176,13 @@
                 node.city = (result[0] !== undefined) ? result[0].city : null;
                 node.state = (result[0] !== undefined) ? result[0].state : null;
             });
-            
+
             // add hovercard
             var hovercard = d3.select('body').append('div')
                 .attr('class', 'hovercard')
                 .style('opacity', 0)
                 .style('width', 400);
-        
+
             // add a SVG to the networkDiagram div
             var svg = d3.select('#networkDiagram').append('svg')
                 .attr('width', width)
@@ -136,15 +192,18 @@
                 .call(d3.behavior.zoom().scaleExtent([0.1, 2]).on('zoom', zoom)).on('dblclick.zoom', null)
                 .append('g');
         
-            // add a transparent background rectangle to catch mouse events for the zoom behaviour.
-            // Note that the rectangle must be inside the element (svg)
-            // which has the zoom behaviour attached, but must be *outside*
-            // the group that is going to be transformed.
+            // add a transparent background rectangle to catch mouse events for the zoom behavior
+            // the rectangle is inside the svg but outside of the diagram content
             var rect = svg.append('rect')
                 .attr('width', width)
                 .attr('height', height)
                 .style('fill', 'none')
                 .style('pointer-events', 'all')
+                .attr('x', 0)
+       			.attr('y', 0)
+       			.style('stroke', '#e6e6e6')
+       			.style('fill', 'none')
+       			.style('stroke-width', '2px')
                 .on('dblclick',undoConnectedNodes);
         
             // create a group that will hold all the content to be zoomed
@@ -203,66 +262,6 @@
                 .attr('dx', 10)
                 .attr('dy', '.30em')
                 .text(function(d) { return d.name; });
-            
-            // tick function to move things around  
-            force.on('tick', function () {
-                
-                link.attr('x1', function (d) { return d.source.x; })
-                    .attr('y1', function (d) { return d.source.y; })
-                    .attr('x2', function (d) { return d.target.x; })
-                    .attr('y2', function (d) { return d.target.y; });
-                node.attr('transform', function(d) 
-                    { return 'translate(' + d.x + ',' + d.y + ')'; });
-                
-                // for link mouseover functions
-                link.on('mouseover', function(d) {
-                    hovercard.transition()
-                        .duration(400)
-                        .style('opacity', 1);
-        
-                // html string for tooltip text
-                var tip =
-                    '<strong>' + d.source.name + '</strong>' + ' is connected to ' + '<strong>' + d.target.name + '</strong><br/>' +
-                    ' through their ' + d.connection +'.';
-                
-                hovercard.html(tip)
-                    .style('left', d3.event.pageX + 'px')
-                    .style('top', d3.event.pageY + 'px');
-                
-                });
-                
-                // make tooltip go away
-                link.on('mouseout', function(d) {
-                    hovercard.transition()
-                        .duration(200)
-                        .style('opacity', 0);
-                });
-        
-                // tooltip for node info
-                node.on('mouseover', function(d) {
-                    hovercard.transition()
-                        .duration(400)
-                        .style('opacity', 1);
-        
-                var tip2 =
-                    'Name: ' + '<strong>' + d.name + '</strong><br/>' +
-                    'Organization: ' + d.organization + '<br/>' +
-                    'City: ' + d.city + '<br/>' +
-                    'State: ' + d.state + '<br/>';
-                
-                hovercard.html(tip2)
-                    .style('left', d3.event.pageX + 'px')
-                    .style('top', d3.event.pageY + 'px');
-                
-                });
-                
-                node.on('mouseout', function(d) {
-                    hovercard.transition()
-                        .duration(200)
-                        .style('opacity', 0);
-                });
-            
-            });// end tick
 
             // to filter the Tableau viz
             function show(filterName, values) {
@@ -342,7 +341,43 @@
                     toggle = 0;
                 }
             } // end connectedNodes
-            
+
+            // button function for selecting nodes
+            $('#selectButton').on('click', connectedNodesTableau);
+
+            // highlights the connected nodes and links based on Tableau selection
+            function connectedNodesTableau() {
+                    // find node data that matches Tableau selection
+                    for (i = 0; i < d3.values(nodes).length; i++) {
+                        if (d3.values(nodes)[i].name === selectedName) {
+                            var selectedData = d3.values(nodes)[i];
+                        }
+                    }
+
+                    // data for the selected name
+                    d = selectedData;
+
+                    // reduce the opacity of all but the neighboring nodes and links
+                    node.style('opacity', function (o) {
+                        return neighboring(d, o) | neighboring(o, d) ? 1 : 0.1;
+                    });
+                    link.style('opacity', function (o) {
+                        return d.index==o.source.index | d.index==o.target.index ? 1 : 0.1;
+                    });
+                    
+                    // pull names from the neighboring nodes for the filter array
+                    nodeData.forEach(function(i) {
+                        if(neighboring(d, i) | neighboring(i, d)) {
+                            filterData.push(i.name);
+                        }
+                    });
+
+                    // shows the filtered neighboring node names
+                    show('Name',filterData);
+                    
+                    toggle = 1;
+            } // end connectedNodesTableau
+
         function undoConnectedNodes() {
             if (toggle == 1) {
                 // undoes the Tableau viz filter
@@ -355,12 +390,71 @@
                 
                 toggle = 0;
             }
-        }
+        } // end undoConnectedNodes
 
-        }
+            // tick function to move things around  
+            force.on('tick', function () {
+                
+                link.attr('x1', function (d) { return d.source.x; })
+                    .attr('y1', function (d) { return d.source.y; })
+                    .attr('x2', function (d) { return d.target.x; })
+                    .attr('y2', function (d) { return d.target.y; });
+                node.attr('transform', function(d) 
+                    { return 'translate(' + d.x + ',' + d.y + ')'; });
+                
+                // for link mouseover functions
+                link.on('mouseover', function(d) {
+                    hovercard.transition()
+                        .duration(400)
+                        .style('opacity', 1);
         
+                // html string for tooltip text
+                var tip =
+                    '<strong>' + d.source.name + '</strong>' + ' is connected to ' + '<strong>' + d.target.name + '</strong><br/>' +
+                    ' through their ' + d.connection +'.';
+                
+                hovercard.html(tip)
+                    .style('left', d3.event.pageX + 'px')
+                    .style('top', d3.event.pageY + 'px');
+                
+                });
+                
+                // make tooltip go away
+                link.on('mouseout', function(d) {
+                    hovercard.transition()
+                        .duration(200)
+                        .style('opacity', 0);
+                });
+        
+                // tooltip for node info
+                node.on('mouseover', function(d) {
+                    hovercard.transition()
+                        .duration(400)
+                        .style('opacity', 1);
+        
+                var tip2 =
+                    'Name: ' + '<strong>' + d.name + '</strong><br/>' +
+                    'Organization: ' + d.organization + '<br/>' +
+                    'City: ' + d.city + '<br/>' +
+                    'State: ' + d.state + '<br/>';
+                
+                hovercard.html(tip2)
+                    .style('left', d3.event.pageX + 'px')
+                    .style('top', d3.event.pageY + 'px');
+                
+                });
+                
+                node.on('mouseout', function(d) {
+                    hovercard.transition()
+                        .duration(200)
+                        .style('opacity', 0);
+                });
+            
+            });// end tick
+        } // end analyze function
         </script><!--end force layout-->
         </div><!--end column 1 div-->
+            <div class='flex-container'><p id='dashboardSelection' class='firstItem'>Select a person below</p><button id='selectButton' type='button' class='button' disabled>Highlight Connections</button></div>
             <div class='col-md-6'  id='TableauViz'>
                 <div id='vizContainer'>
                 </div><!--end vizContainer-->
