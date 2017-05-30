@@ -2,6 +2,10 @@
 <html lang='en'>
 
 <style>
+    body {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
     h1 {
         padding-bottom: 0px;
         margin-bottom: 0px;
@@ -18,7 +22,7 @@
         border-right: 10px solid white;
     }
     #dashboardSelection {
-        padding-right: 20px;
+        padding-right: 10px;
         margin-top: 10px;
     }
     .flex-container {
@@ -38,6 +42,7 @@
     .button {
         color: #4da6ff;
         padding: 10px;
+        margin-right: 5px;
         text-align: center;
         border-radius: 12px;
         border: 2px solid #4da6ff;
@@ -95,7 +100,8 @@
 <body onload='initViz();'>
     <div class='container-fluid'>
     <h1>Tableau JavaScript API Test</h1>
-    <p>On the network diagram (left), double click on a node to highlight its connections and filter the Tableau dashboard (right). Double click on a node or on the background to deselect. On the Tableau dashboard, select a person then click the highlight connections button to view their connections on the network diagram.</p>
+    <p>On the network diagram (left), double click on a node to highlight its connections and filter the Tableau dashboard (right). Double click on a node or on the background to deselect.
+        <br>On the Tableau dashboard, select a person then click the highlight connections button to view their connections on the network diagram.</p>
     <div class='row'>
         <div class='col-md-6' id='networkDiagram'>
             <script>
@@ -377,6 +383,9 @@
                     
                     toggle = 1;
             } // end connectedNodesTableau
+        
+        // button function for clearing the selection
+        $('#clearButton').on('click', undoConnectedNodes);
 
         function undoConnectedNodes() {
             if (toggle == 1) {
@@ -454,7 +463,10 @@
         } // end analyze function
         </script><!--end force layout-->
         </div><!--end column 1 div-->
-            <div class='flex-container'><p id='dashboardSelection' class='firstItem'>Select a person below</p><button id='selectButton' type='button' class='button' disabled>Highlight Connections</button></div>
+            <div class='flex-container'><strong><p id='dashboardSelection' class='firstItem'>Select a person below</p></strong>
+                <button id='selectButton' type='button' class='button' disabled>Highlight Connections</button>
+                <button id='clearButton' type='button' class='button'>Clear Selection</button>
+                </div>
             <div class='col-md-6'  id='TableauViz'>
                 <div id='vizContainer'>
                 </div><!--end vizContainer-->
