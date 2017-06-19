@@ -107,7 +107,6 @@
             <script>
             // for Tableau API
             var viz, sheet, selectedName;
-
             function initViz() {
                 var containerDiv = document.getElementById('vizContainer'),
                     url = 'https://public.tableau.com/views/SampleDashboard_96/Dashboard1',
@@ -120,7 +119,6 @@
                     };
     
                 var viz = new tableau.Viz(containerDiv, url, options);
-
                 // event listener functions for returning the selected name
                 function listenToMarksSelection() {
                     viz.addEventListener(tableau.TableauEventName.MARKS_SELECTION, onMarksSelection);
@@ -143,7 +141,6 @@
                     }
                 } // end returnNames function
             } // end initViz function
-
             // variable to set the networkDiagram div width based on window size
             var chartDiv = document.getElementById('networkDiagram');
             
@@ -156,7 +153,6 @@
               .defer(d3.csv, 'sampleData.csv')
               .defer(d3.csv, 'SampleTableauData.csv')
               .await(analyze);
-
             function analyze(error, links, TableauData) {
                 // create empty nodes array
                 var nodes = {};
@@ -168,10 +164,8 @@
                         (nodes[link.target] = {name: link.target});
                     link.count = +link.count;        
                 });
-
             // node values
             var nodeData = d3.values(nodes);
-
             // add Tableau data from csv to node data
             nodeData.forEach(function(node) {
                 // returns data if names match
@@ -182,13 +176,11 @@
                 node.city = (result[0] !== undefined) ? result[0].city : null;
                 node.state = (result[0] !== undefined) ? result[0].state : null;
             });
-
             // add hovercard
             var hovercard = d3.select('body').append('div')
                 .attr('class', 'hovercard')
                 .style('opacity', 0)
                 .style('width', 400);
-
             // add a SVG to the networkDiagram div
             var svg = d3.select('#networkDiagram').append('svg')
                 .attr('width', width)
@@ -243,7 +235,6 @@
                 .on('dragstart', function(d) {
         		d3.event.sourceEvent.stopPropagation();
               });
-
             // setup node definition
             var node = vis.selectAll('.node')
                 .data(d3.values(nodes))
@@ -268,7 +259,6 @@
                 .attr('dx', 10)
                 .attr('dy', '.30em')
                 .text(function(d) { return d.name; });
-
             // to filter the Tableau viz
             function show(filterName, values) {
                 var worksheetArray = sheet.getWorksheets();
@@ -276,7 +266,6 @@
                     worksheetArray[i].applyFilterAsync(filterName, values, tableau.FilterUpdateType.REPLACE);
                 }
             }
-
             // to undo the viz filter
             function undo(filterName, values) {
                 var worksheetArray = sheet.getWorksheets();
@@ -284,7 +273,6 @@
                     worksheetArray[i].clearFilterAsync(filterName, values, tableau.FilterUpdateType.REPLACE);
                 }
             }
-
             // toggle stores whether the highlighting is on
             var toggle = 0;
             // create an array logging what is connected to what
@@ -299,12 +287,10 @@
             links.forEach(function (d) {
                 linkedByIndex[d.source.index + ',' + d.target.index] = 1;
             });
-
             // this function looks up whether a pair are neighbors. If so, it returns the index for the linked pair that is stored in linkedByIndex
             function neighboring(a, b) {
                 return linkedByIndex[a.index + ',' + b.index];
             }
-
             // empty array for the Tableau filter function
             var filterData = [];
             
@@ -313,7 +299,6 @@
                 if (toggle == 0) {
                     // data for the clicked node
                     d = d3.select(this).node().__data__;
-
                     // reduce the opacity of all but the neighboring nodes and links
                     node.style('opacity', function (o) {
                         return neighboring(d, o) | neighboring(o, d) ? 1 : 0.1;
@@ -328,10 +313,11 @@
                             filterData.push(i.name);
                         }
                     });
-
                     // shows the filtered neighboring node names on the Tableau viz
                     show('Name',filterData);
-
+                    // updates the name next to the filter button
+                    document.getElementById("dashboardSelection").innerHTML = d.name;
+                    
                     // reduce the opacity of unlinked nodes
                     toggle = 1;
                 } else {
@@ -344,13 +330,16 @@
                     node.style('opacity', 1);
                     link.style('opacity', 1);
                     
+                    // clears the name next to the filter button 
+                    document.getElementById("dashboardSelection").innerHTML = "Select a person below";
+                    
                     toggle = 0;
                 }
             } // end connectedNodes
-
+            
             // button function for selecting nodes
             $('#selectButton').on('click', connectedNodesTableau);
-
+           
             // highlights the connected nodes and links based on Tableau selection
             function connectedNodesTableau() {
                     // find node data that matches Tableau selection
@@ -359,10 +348,8 @@
                             var selectedData = d3.values(nodes)[i];
                         }
                     }
-
                     // data for the selected name
                     d = selectedData;
-
                     // reduce the opacity of all but the neighboring nodes and links
                     node.style('opacity', function (o) {
                         return neighboring(d, o) | neighboring(o, d) ? 1 : 0.1;
@@ -377,16 +364,15 @@
                             filterData.push(i.name);
                         }
                     });
-
                     // shows the filtered neighboring node names
                     show('Name',filterData);
-                    
+
                     toggle = 1;
             } // end connectedNodesTableau
         
         // button function for clearing the selection
         $('#clearButton').on('click', undoConnectedNodes);
-
+        
         function undoConnectedNodes() {
             if (toggle == 1) {
                 // undoes the Tableau viz filter
@@ -396,11 +382,12 @@
                 // put nodes and links back to opacity=1 and remove highlights
                 node.style('opacity', 1);
                 link.style('opacity', 1);
+                // clears the name next to the filter button 
+                document.getElementById("dashboardSelection").innerHTML = "Select a person below";
                 
                 toggle = 0;
             }
         } // end undoConnectedNodes
-
             // tick function to move things around  
             force.on('tick', function () {
                 
